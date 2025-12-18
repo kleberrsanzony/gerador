@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gerador de Criativos - Locução</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 980px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .grid-1 {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1fr;
+        }
+
+        label {
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+
+        textarea {
+            min-height: 120px;
+        }
+
+        button {
+            padding: 12px 14px;
+            border: 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .card {
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #f7f7f7;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+
+        .muted {
+            opacity: .75;
+            font-size: 13px;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎙️ Gerador de Criativos para Locução</h1>
+    <p class="muted">Sem login. Sem cadastro. Só funcional.</p>
+
+    <div class="card">
+        <div class="grid">
+            <div>
+                <label>Tipo</label>
+                <select id="tipo">
+                    <option>Comercial</option>
+                    <option>Institucional</option>
+                    <option>Reels / Short</option>
+                    <option>Carro de Som</option>
+                    <option>Vinheta</option>
+                    <option>Narração (vídeo)</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Duração</label>
+                <select id="duracao">
+                    <option>15s</option>
+                    <option>30s</option>
+                    <option>40s</option>
+                    <option>60s</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Nicho/Cliente</label>
+                <input id="nicho" placeholder="Ex: imobiliária, loja de construção, clínica..." />
+            </div>
+
+            <div>
+                <label>Objetivo</label>
+                <select id="objetivo">
+                    <option>Vender</option>
+                    <option>Gerar leads</option>
+                    <option>Posicionamento/Autoridade</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Tom de voz</label>
+                <select id="tom">
+                    <option>Premium (high-ticket)</option>
+                    <option>Vendedor direto</option>
+                    <option>Neutro profissional</option>
+                    <option>Emocional</option>
+                    <option>Engraçado</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Região (opcional)</label>
+                <input id="regiao" placeholder="Ex: Recife/PE" />
+            </div>
+
+            <div class="full">
+                <label>Oferta / Diferencial / Informações obrigatórias</label>
+                <textarea id="oferta"
+                    placeholder="Ex: 20% off até sábado, WhatsApp, endereço, garantia, entrega..."></textarea>
+            </div>
+
+            <div class="full row">
+                <input id="apiKey" type="password" placeholder="Cole aqui sua OPENAI API KEY (teste rápido)" />
+                <button id="gerar">Gerar</button>
+                <button id="copiar" disabled>Copiar</button>
+            </div>
+            <div class="full muted">
+                Dica: para publicar na internet com segurança, use o modo “proxy” (passo 2), pra não expor sua chave.
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>Resultado</h3>
+        <pre id="saida">Preencha o briefing e clique em “Gerar”.</pre>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        function montarPrompt() {
+            const tipo = $("tipo").value;
+            const duracao = $("duracao").value;
+            const nicho = $("nicho").value.trim() || "NÃO INFORMADO";
+            const objetivo = $("objetivo").value;
+            const tom = $("tom").value;
+            const regiao = $("regiao").value.trim();
+            const oferta = $("oferta").value.trim() || "NÃO INFORMADO";
+
+            return `
+Você é um redator publicitário e diretor de criação especialista em LOCUÇÃO profissional de alto impacto.
+
+Crie um roteiro ORIGINAL e pronto para ser narrado.
+
+Briefing:
+- Tipo: ${tipo}
+- Duração: ${duracao}
+- Nicho/Cliente: ${nicho}
+- Objetivo: ${objetivo}
+- Tom de voz: ${tom}
+- Região: ${regiao || "sem região"}
+- Oferta/Diferencial/Info obrigatória: ${oferta}
+
+Entregue obrigatoriamente:
+1) Hook (0–3s) MUITO forte
+2) Texto de locução com cadência (marque pausas com “/”)
+3) Palavras para ÊNFASE em MAIÚSCULO
+4) CTA claro (WhatsApp/DM/ligar/visitar)
+5) 3 variações (ângulos diferentes: benefício / prova / urgência)
+6) Legenda pronta para Instagram + 12 hashtags (sem exagero, focadas no nicho)
+7) Sugestão de visual do vídeo (cenas rápidas) para narrar por cima
+
+Regras:
+- Nada genérico.
+- Linguagem premium e direta.
+- Sem clichês.
+    `.trim();
+        }
+
+        async function gerar() {
+            const apiKey = $("apiKey").value.trim();
+            if (!apiKey) {
+                alert("Cole sua API Key para testar (ou use o modo proxy no passo 2).");
+                return;
+            }
+
+            $("gerar").disabled = true;
+            $("saida").textContent = "Gerando...";
+            $("copiar").disabled = true;
+
+            try {
+                const prompt = montarPrompt();
+
+                const res = await fetch("/api/gerar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt })
+                });
+                const data = await res.json();
+                $("saida").textContent = data.text || "Sem texto retornado.";
+
+                $("copiar").disabled = !text;
+            } catch (e) {
+                $("saida").textContent = "Erro:\n" + (e.message || e);
+            } finally {
+                $("gerar").disabled = false;
+            }
+        }
+
+        function copiar() {
+            navigator.clipboard.writeText($("saida").textContent);
+        }
+
+        $("gerar").addEventListener("click", gerar);
+        $("copiar").addEventListener("click", copiar);
+    </script>
+</body>
+
+</html>
