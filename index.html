@@ -19,12 +19,6 @@
             grid-template-columns: 1fr 1fr;
         }
 
-        .grid-1 {
-            display: grid;
-            gap: 12px;
-            grid-template-columns: 1fr;
-        }
-
         label {
             font-weight: 700;
             font-size: 14px;
@@ -37,10 +31,12 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 10px;
+            box-sizing: border-box;
         }
 
         textarea {
             min-height: 120px;
+            resize: vertical;
         }
 
         button {
@@ -60,6 +56,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .card {
@@ -75,22 +72,50 @@
             padding: 12px;
             border-radius: 12px;
             border: 1px solid #eee;
+            min-height: 80px;
         }
 
         .muted {
             opacity: .75;
             font-size: 13px;
+            line-height: 1.4;
         }
 
         .full {
             grid-column: 1 / -1;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .status {
+            font-size: 13px;
+            opacity: .8;
+        }
+
+        @media (max-width: 720px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                justify-content: stretch;
+            }
+
+            .actions button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 
 <body>
     <h1>🎙️ Gerador de Criativos para Locução</h1>
-    <p class="muted">Sem login. Sem cadastro. Só funcional.</p>
+    <p class="muted">Sem login. Sem cadastro. Só funcional. (Usa proxy em <code>/api/gerar</code> na Vercel)</p>
 
     <div class="card">
         <div class="grid">
@@ -110,7 +135,7 @@
                 <label>Duração</label>
                 <select id="duracao">
                     <option>15s</option>
-                    <option>30s</option>
+                    <option selected>30s</option>
                     <option>40s</option>
                     <option>60s</option>
                 </select>
@@ -149,16 +174,21 @@
             <div class="full">
                 <label>Oferta / Diferencial / Informações obrigatórias</label>
                 <textarea id="oferta"
-                    placeholder="Ex: 20% off até sábado, WhatsApp, endereço, garantia, entrega..."></textarea>
+                    placeholder="Ex: Adquirindo 2 spots, o 3º é grátis. WhatsApp, endereço, garantia, entrega..."></textarea>
             </div>
 
             <div class="full row">
-                <input id="apiKey" type="password" placeholder="Cole aqui sua OPENAI API KEY (teste rápido)" />
-                <button id="gerar">Gerar</button>
-                <button id="copiar" disabled>Copiar</button>
+                <div class="status" id="status">Preencha o briefing e clique em “Gerar”.</div>
+                <div class="actions" style="margin-left:auto;">
+                    <button id="gerar">Gerar</button>
+                    <button id="copiar" disabled>Copiar</button>
+                </div>
             </div>
+
             <div class="full muted">
-                Dica: para publicar na internet com segurança, use o modo “proxy” (passo 2), pra não expor sua chave.
+                Dica: sua chave fica segura na Vercel em <strong>Environment Variables</strong> (OPENAI_API_KEY). Este
+                site não
+                pede chave no navegador.
             </div>
         </div>
     </div>
@@ -207,19 +237,14 @@ Regras:
 - Nada genérico.
 - Linguagem premium e direta.
 - Sem clichês.
-    `.trim();
+      `.trim();
         }
 
         async function gerar() {
-            const apiKey = $("apiKey").value.trim();
-            if (!apiKey) {
-                alert("Cole sua API Key para testar (ou use o modo proxy no passo 2).");
-                return;
-            }
-
             $("gerar").disabled = true;
-            $("saida").textContent = "Gerando...";
             $("copiar").disabled = true;
+            $("status").textContent = "Gerando...";
+            $("saida").textContent = "Gerando...";
 
             try {
                 const prompt = montarPrompt();
@@ -229,19 +254,40 @@ Regras:
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ prompt })
                 });
-                const data = await res.json();
-                $("saida").textContent = data.text || "Sem texto retornado.";
 
-                $("copiar").disabled = !text;
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText);
+                }
+
+                const data = await res.json();
+                const out = (data && data.text) ? data.text : "";
+
+                $("saida").textContent = out || "Sem texto retornado.";
+                $("copiar").disabled = !out;
+                $("status").textContent = out ? "Pronto ✅" : "Sem texto retornado.";
+
             } catch (e) {
-                $("saida").textContent = "Erro:\n" + (e.message || e);
+                const msg = (e && e.message) ? e.message : String(e);
+                $("saida").textContent = "Erro:\n" + msg;
+                $("status").textContent = "Erro ao gerar ❌";
             } finally {
                 $("gerar").disabled = false;
             }
         }
 
-        function copiar() {
-            navigator.clipboard.writeText($("saida").textContent);
+        async function copiar() {
+            const text = $("saida").textContent || "";
+            if (!text.trim()) return;
+
+            try {
+                await navigator.clipboard.writeText(text);
+                $("status").textContent = "Copiado ✅";
+                setTimeout(() => $("status").textContent = "Pronto ✅", 1200);
+            } catch {
+                // fallback: seleciona o texto para copiar manualmente
+                $("status").textContent = "Não consegui copiar automaticamente. Selecione e copie.";
+            }
         }
 
         $("gerar").addEventListener("click", gerar);
