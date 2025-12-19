@@ -68,7 +68,8 @@ export default async function handler(request) {
             return json(400, { error: "Prompt is required (string)." });
         }
 
-        const apiKey = process.env.NANO_BANANA_API_KEY || process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.NANO_BANANA_API_KEY;
+
 
         if (!apiKey) {
             return json(500, { error: "Server configuration error: API Key missing." });
