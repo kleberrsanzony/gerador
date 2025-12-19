@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Gerador de Criativos - Locução</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -94,7 +95,20 @@
 
         .status {
             font-size: 13px;
-            opacity: .8;
+            opacity: .85;
+        }
+
+        .pill {
+            font-size: 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: #fafafa;
+            cursor: pointer;
+        }
+
+        .pill:active {
+            transform: scale(0.99);
         }
 
         @media (max-width: 720px) {
@@ -118,7 +132,15 @@
     <p class="muted">Sem login. Sem cadastro. Só funcional. (Usa proxy em <code>/api/gerar</code> na Vercel)</p>
 
     <div class="card">
-        <div class="grid">
+        <!-- Presets rápidos (opcional, mas ajuda muito) -->
+        <div class="row" style="margin-bottom:12px;">
+            <button class="pill" type="button" id="presetImob">🏠 Imobiliária</button>
+            <button class="pill" type="button" id="presetLoja">🛒 Loja</button>
+            <button class="pill" type="button" id="presetClinica">🏥 Clínica</button>
+            <span class="muted">Dica: use os presets pra acelerar.</span>
+        </div>
+
+        <form id="form" class="grid">
             <div>
                 <label>Tipo</label>
                 <select id="tipo">
@@ -171,6 +193,13 @@
                 <input id="regiao" placeholder="Ex: Recife/PE" />
             </div>
 
+            <!-- ✅ NOVO: texto base -->
+            <div class="full">
+                <label>Seu texto base (opcional)</label>
+                <textarea id="textoBase"
+                    placeholder="Cole aqui um texto seu. Vou reescrever e elevar mantendo sua ideia."></textarea>
+            </div>
+
             <div class="full">
                 <label>Oferta / Diferencial / Informações obrigatórias</label>
                 <textarea id="oferta"
@@ -180,17 +209,17 @@
             <div class="full row">
                 <div class="status" id="status">Preencha o briefing e clique em “Gerar”.</div>
                 <div class="actions" style="margin-left:auto;">
-                    <button id="gerar">Gerar</button>
-                    <button id="copiar" disabled>Copiar</button>
+                    <button id="gerar" type="submit">Gerar</button>
+                    <button id="copiar" type="button" disabled>Copiar</button>
                 </div>
             </div>
 
             <div class="full muted">
-                Dica: sua chave fica segura na Vercel em <strong>Environment Variables</strong> (OPENAI_API_KEY). Este
-                site não
-                pede chave no navegador.
+                Dica: sua chave fica segura na Vercel em <strong>Environment Variables</strong>
+                (<code>NANO_BANANA_API_KEY</code> ou <code>GEMINI_API_KEY</code>). Este site não pede chave no
+                navegador.
             </div>
-        </div>
+        </form>
     </div>
 
     <div class="card" style="margin-top:14px;">
@@ -208,12 +237,17 @@
             const objetivo = $("objetivo").value;
             const tom = $("tom").value;
             const regiao = $("regiao").value.trim();
+            const textoBase = $("textoBase").value.trim();
             const oferta = $("oferta").value.trim() || "NÃO INFORMADO";
 
             return `
 Você é um redator publicitário e diretor de criação especialista em LOCUÇÃO profissional de alto impacto.
 
 Crie um roteiro ORIGINAL e pronto para ser narrado.
+Se eu fornecer um "texto base", você deve:
+- manter a IDEIA e a INTENÇÃO
+- reescrever para ficar mais premium e persuasivo
+- eliminar clichês e frases genéricas
 
 Briefing:
 - Tipo: ${tipo}
@@ -222,6 +256,7 @@ Briefing:
 - Objetivo: ${objetivo}
 - Tom de voz: ${tom}
 - Região: ${regiao || "sem região"}
+- Texto base: ${textoBase || "sem texto base"}
 - Oferta/Diferencial/Info obrigatória: ${oferta}
 
 Entregue obrigatoriamente:
@@ -240,11 +275,18 @@ Regras:
       `.trim();
         }
 
-        async function gerar() {
-            $("gerar").disabled = true;
+        function setLoading(isLoading) {
+            $("gerar").disabled = isLoading;
+            $("gerar").textContent = isLoading ? "Gerando..." : "Gerar";
+        }
+
+        async function gerar(e) {
+            if (e) e.preventDefault();
+
             $("copiar").disabled = true;
             $("status").textContent = "Gerando...";
             $("saida").textContent = "Gerando...";
+            setLoading(true);
 
             try {
                 const prompt = montarPrompt();
@@ -252,17 +294,17 @@ Regras:
                 const res = await fetch("/api/gerar", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt })
+                    body: JSON.stringify({ prompt }),
                 });
 
+                const data = await res.json().catch(() => ({}));
+
                 if (!res.ok) {
-                    const errText = await res.text();
-                    throw new Error(errText);
+                    const msg = data?.error || (await res.text().catch(() => "")) || "Erro desconhecido";
+                    throw new Error(msg);
                 }
 
-                const data = await res.json();
                 const out = (data && data.text) ? data.text : "";
-
                 $("saida").textContent = out || "Sem texto retornado.";
                 $("copiar").disabled = !out;
                 $("status").textContent = out ? "Pronto ✅" : "Sem texto retornado.";
@@ -272,7 +314,7 @@ Regras:
                 $("saida").textContent = "Erro:\n" + msg;
                 $("status").textContent = "Erro ao gerar ❌";
             } finally {
-                $("gerar").disabled = false;
+                setLoading(false);
             }
         }
 
@@ -285,13 +327,38 @@ Regras:
                 $("status").textContent = "Copiado ✅";
                 setTimeout(() => $("status").textContent = "Pronto ✅", 1200);
             } catch {
-                // fallback: seleciona o texto para copiar manualmente
                 $("status").textContent = "Não consegui copiar automaticamente. Selecione e copie.";
             }
         }
 
-        $("gerar").addEventListener("click", gerar);
+        // Presets
+        function presetImobiliaria() {
+            $("nicho").value = "Imobiliária (médio/alto padrão)";
+            $("objetivo").value = "Vender";
+            $("tom").value = "Premium (high-ticket)";
+            $("textoBase").value = "Seu novo imóvel te espera. Atendimento rápido e personalizado. Agende sua visita.";
+        }
+
+        function presetLoja() {
+            $("nicho").value = "Loja (varejo)";
+            $("objetivo").value = "Vender";
+            $("tom").value = "Vendedor direto";
+            $("textoBase").value = "Promoção por tempo limitado. Chama no WhatsApp e garanta o seu hoje.";
+        }
+
+        function presetClinica() {
+            $("nicho").value = "Clínica especializada";
+            $("objetivo").value = "Gerar leads";
+            $("tom").value = "Neutro profissional";
+            $("textoBase").value = "Agende sua avaliação. Atendimento humanizado e profissionais qualificados.";
+        }
+
+        $("form").addEventListener("submit", gerar);
         $("copiar").addEventListener("click", copiar);
+
+        $("presetImob").addEventListener("click", presetImobiliaria);
+        $("presetLoja").addEventListener("click", presetLoja);
+        $("presetClinica").addEventListener("click", presetClinica);
     </script>
 </body>
 
